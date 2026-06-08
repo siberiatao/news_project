@@ -1,0 +1,17 @@
+{
+  "name": "personal-news-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal news intelligence system MVP: RSS ingestion, SQLite storage, ranking, and Markdown daily briefs.",
+  "scripts": {
+    "init-db": "node --experimental-strip-types src/cli.ts init-db",
+    "ingest": "node --experimental-strip-types src/cli.ts ingest",
+    "brief": "node --experimental-strip-types src/cli.ts brief",
+    "run": "node --experimental-strip-types src/cli.ts run",
+    "test": "node --test --experimental-strip-types tests/*.test.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

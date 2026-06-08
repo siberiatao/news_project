@@ -1,0 +1,10 @@
+services:
+  news-brief:
+    build: .
+    image: personal-news-intelligence:phase1
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config:ro
+    command: ["run"]

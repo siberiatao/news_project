@@ -1,0 +1,110 @@
+[
+  {
+    "id": "bbc-world",
+    "name": "BBC World",
+    "type": "rss",
+    "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "homepage": "https://www.bbc.com/news/world",
+    "language": "en",
+    "region": "global",
+    "category": "global",
+    "reliability": 0.9,
+    "enabled": true
+  },
+  {
+    "id": "techcrunch",
+    "name": "TechCrunch",
+    "type": "rss",
+    "url": "https://techcrunch.com/feed/",
+    "homepage": "https://techcrunch.com/",
+    "language": "en",
+    "region": "global",
+    "category": "tech",
+    "reliability": 0.78,
+    "enabled": true
+  },
+  {
+    "id": "the-verge",
+    "name": "The Verge",
+    "type": "rss",
+    "url": "https://www.theverge.com/rss/index.xml",
+    "homepage": "https://www.theverge.com/",
+    "language": "en",
+    "region": "global",
+    "category": "tech",
+    "reliability": 0.76,
+    "enabled": true
+  },
+  {
+    "id": "ars-technica",
+    "name": "Ars Technica",
+    "type": "rss",
+    "url": "https://feeds.arstechnica.com/arstechnica/index",
+    "homepage": "https://arstechnica.com/",
+    "language": "en",
+    "region": "global",
+    "category": "tech",
+    "reliability": 0.82,
+    "enabled": true
+  },
+  {
+    "id": "cnbc-tech",
+    "name": "CNBC Technology",
+    "type": "rss",
+    "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",
+    "homepage": "https://www.cnbc.com/technology/",
+    "language": "en",
+    "region": "global",
+    "category": "finance",
+    "reliability": 0.8,
+    "enabled": true
+  },
+  {
+    "id": "nikkei-asia",
+    "name": "Nikkei Asia",
+    "type": "rss",
+    "url": "https://asia.nikkei.com/rss/feed/nar",
+    "homepage": "https://asia.nikkei.com/",
+    "language": "en",
+    "region": "asia",
+    "category": "global",
+    "reliability": 0.84,
+    "enabled": true
+  },
+  {
+    "id": "ee-times",
+    "name": "EE Times",
+    "type": "rss",
+    "url": "https://www.eetimes.com/feed/",
+    "homepage": "https://www.eetimes.com/",
+    "language": "en",
+    "region": "global",
+    "category": "semiconductor",
+    "reliability": 0.8,
+    "enabled": true
+  },
+  {
+    "id": "ithome-rsshub",
+    "name": "IT Home via RSSHub",
+    "type": "rsshub",
+    "url": "https://rsshub.app/ithome/it",
+    "homepage": "https://www.ithome.com/",
+    "language": "zh",
+    "region": "cn",
+    "category": "tech",
+    "reliability": 0.7,
+    "enabled": false
+  },
+  {
+    "id": "reuters-tech",
+    "name": "Reuters Technology",
+    "type": "rss",
+    "url": "https://www.reutersagency.com/feed/?best-topics=tech&post_type=best",
+    "homepage": "https://www.reuters.com/technology/",
+    "language": "en",
+    "region": "global",
+    "category": "tech",
+    "reliability": 0.9,
+    "enabled": false
+  }
+]

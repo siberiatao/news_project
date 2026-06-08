@@ -1,0 +1,99 @@
+{
+  "briefTime": "08:00",
+  "defaultWindowHours": 24,
+  "minScoreForBrief": 20,
+  "sectionOrder": [
+    "global",
+    "tech",
+    "finance",
+    "semiconductor",
+    "x",
+    "happening"
+  ],
+  "sections": {
+    "global": "Global Headlines",
+    "tech": "IT / AI / Internet",
+    "finance": "Finance / Macro / Markets",
+    "semiconductor": "Semiconductors / Supply Chain / Geopolitical Tech",
+    "x": "X Hotspots And Key People",
+    "happening": "Happening Now"
+  },
+  "domainWeights": {
+    "global": 10,
+    "tech": 24,
+    "finance": 22,
+    "semiconductor": 28,
+    "x": 16,
+    "happening": 18
+  },
+  "sourceReliabilityWeight": 20,
+  "keyEntities": [
+    "NVIDIA",
+    "AMD",
+    "TSMC",
+    "ASML",
+    "Apple",
+    "Microsoft",
+    "OpenAI",
+    "Tesla",
+    "Meta",
+    "Broadcom",
+    "Intel",
+    "Google",
+    "Amazon",
+    "Anthropic",
+    "Samsung",
+    "SK Hynix"
+  ],
+  "keywords": {
+    "tech": [
+      "AI",
+      "artificial intelligence",
+      "internet",
+      "cloud",
+      "model",
+      "startup",
+      "software",
+      "platform",
+      "data center"
+    ],
+    "finance": [
+      "market",
+      "stock",
+      "rate",
+      "inflation",
+      "fed",
+      "earnings",
+      "revenue",
+      "guidance",
+      "macro",
+      "bond",
+      "dollar"
+    ],
+    "semiconductor": [
+      "chip",
+      "semiconductor",
+      "GPU",
+      "wafer",
+      "foundry",
+      "lithography",
+      "HBM",
+      "memory",
+      "supply chain",
+      "export control",
+      "packaging"
+    ],
+    "happening": [
+      "breaking",
+      "urgent",
+      "live",
+      "developing",
+      "surges",
+      "plunges",
+      "ban",
+      "sanction",
+      "policy",
+      "investigation"
+    ]
+  }
+}
