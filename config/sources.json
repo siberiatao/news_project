@@ -106,5 +106,33 @@
     "category": "tech",
     "reliability": 0.9,
     "enabled": false
+  },
+  {
+    "id": "x-ai-chip-watch",
+    "name": "X AI And Semiconductor Watch",
+    "type": "x",
+    "query": "(OpenAI OR NVIDIA OR AMD OR TSMC OR ASML OR \"artificial intelligence\" OR semiconductor) lang:en -is:retweet -is:reply",
+    "maxResults": 50,
+    "maxPages": 1,
+    "homepage": "https://x.com/",
+    "language": "en",
+    "region": "global",
+    "category": "x",
+    "reliability": 0.55,
+    "enabled": false
+  },
+  {
+    "id": "x-key-accounts",
+    "name": "X Key Accounts",
+    "type": "x",
+    "query": "(from:OpenAI OR from:nvidia OR from:AMD OR from:Microsoft OR from:GoogleDeepMind OR from:AnthropicAI) -is:retweet",
+    "maxResults": 50,
+    "maxPages": 1,
+    "homepage": "https://x.com/",
+    "language": "en",
+    "region": "global",
+    "category": "x",
+    "reliability": 0.72,
+    "enabled": false
   }
 ]

@@ -1,4 +1,5 @@
 import { fetchRssSource } from "../sources/rss.ts";
+import { fetchXRecentSearch } from "../sources/x.ts";
 import type { InterestsConfig, NewsSource } from "../types.ts";
 import { normalizeItem } from "../normalize/index.ts";
 import type { NewsDatabase } from "../db/index.ts";
@@ -51,6 +52,9 @@ export async function ingestSources(
 async function fetchSource(source: NewsSource) {
   if (source.type === "rss" || source.type === "rsshub") {
     return fetchRssSource(source);
+  }
+  if (source.type === "x") {
+    return fetchXRecentSearch(source);
   }
   throw new Error(`Source type ${source.type} is not implemented yet`);
 }

@@ -4,7 +4,10 @@ export type NewsSource = {
   id: string;
   name: string;
   type: SourceType;
-  url: string;
+  url?: string;
+  query?: string;
+  maxResults?: number;
+  maxPages?: number;
   homepage?: string;
   language?: string;
   region?: string;
@@ -53,9 +56,29 @@ export type InterestsConfig = {
   sourceReliabilityWeight: number;
   keyEntities: string[];
   keywords: Record<string, string[]>;
+  clustering: {
+    similarityThreshold: number;
+    maxHoursApart: number;
+    minSharedTokens: number;
+  };
 };
 
 export type StoredArticle = NormalizedArticle & {
   id: number;
   createdAt: string;
+};
+
+export type StoryCluster = {
+  key: string;
+  title: string;
+  summary?: string;
+  section: string;
+  score: number;
+  scoreReasons: string[];
+  firstSeenAt: string;
+  lastSeenAt: string;
+  tags: string[];
+  entities: string[];
+  sources: string[];
+  articles: StoredArticle[];
 };

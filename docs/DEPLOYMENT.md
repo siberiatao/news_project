@@ -12,11 +12,47 @@ node --experimental-strip-types src/cli.ts run
 `run` performs:
 
 1. RSS/RSSHub ingestion.
-2. SQLite upsert and dedupe.
-3. Daily Markdown brief generation.
-4. Lark delivery when `LARK_WEBHOOK_URL` is configured.
+2. Optional X recent-search ingestion.
+3. SQLite upsert and URL dedupe.
+4. Event clustering and multi-source ranking.
+5. Daily Markdown brief generation.
 
-## Lark Setup
+Delivery is not automatic. Add `--deliver` only when a delivery adapter should
+run.
+
+## X API Setup
+
+Create an X developer App and put its app-only Bearer Token in `.env`:
+
+```text
+X_BEARER_TOKEN=...
+```
+
+Then edit `config/sources.json` and set `"enabled": true` for the desired X
+sources:
+
+- `x-ai-chip-watch`
+- `x-key-accounts`
+
+Check configuration:
+
+```bash
+docker compose run --rm news-brief sources
+```
+
+Run ingestion:
+
+```bash
+docker compose run --rm news-brief ingest
+```
+
+X recent search covers the most recent seven days. Keep queries narrow to
+control noise and API usage. Official documentation:
+
+- https://docs.x.com/x-api/posts/search/introduction
+- https://docs.x.com/x-api/posts/search/integrate/overview
+
+## Optional Lark Setup
 
 Create `.env` from `.env.example`:
 
@@ -99,6 +135,16 @@ Generate and force delivery:
 
 ```bash
 docker compose run --rm news-brief deliver
+```
+
+Useful Phase 2 commands:
+
+```bash
+docker compose run --rm news-brief sources
+docker compose run --rm news-brief stats
+docker compose run --rm news-brief search NVIDIA
+docker compose run --rm news-brief cluster --hours 72
+docker compose run --rm news-brief brief --hours 72
 ```
 
 Persistent data is mounted at:

@@ -172,11 +172,11 @@ Phase 2: Reader and delivery MVP
 
 Phase 3: Story intelligence and X
 
-- Deduplicate articles.
-- Cluster related articles.
-- Generate story summaries.
-- Add timeline view.
-- Add X recent search or filtered stream.
+- Completed in Phase 2 foundation: X recent search, transparent event
+  clustering, multi-source scoring, and event-level briefs.
+- Next: tune clustering against real data.
+- Next: add story evolution and timeline state.
+- Later: optional embedding clustering and LLM synthesis.
 
 Phase 4: Hardening
 

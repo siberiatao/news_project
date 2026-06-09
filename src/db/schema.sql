@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS sources (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   type TEXT NOT NULL,
-  url TEXT NOT NULL,
+  url TEXT NOT NULL DEFAULT '',
   homepage TEXT,
   language TEXT,
   region TEXT,
@@ -59,3 +59,31 @@ CREATE TABLE IF NOT EXISTS briefs (
   item_count INTEGER NOT NULL,
   generated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS stories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  story_key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  summary TEXT,
+  section TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  score_reasons_json TEXT NOT NULL,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  tags_json TEXT NOT NULL,
+  entities_json TEXT NOT NULL,
+  sources_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS story_articles (
+  story_id INTEGER NOT NULL,
+  article_id INTEGER NOT NULL,
+  similarity REAL NOT NULL,
+  PRIMARY KEY (story_id, article_id),
+  FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE CASCADE,
+  FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_stories_last_seen ON stories(last_seen_at);
+CREATE INDEX IF NOT EXISTS idx_stories_score ON stories(score);

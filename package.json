@@ -8,6 +8,9 @@
     "init-db": "node --experimental-strip-types src/cli.ts init-db",
     "ingest": "node --experimental-strip-types src/cli.ts ingest",
     "brief": "node --experimental-strip-types src/cli.ts brief",
+    "cluster": "node --experimental-strip-types src/cli.ts cluster",
+    "sources": "node --experimental-strip-types src/cli.ts sources",
+    "stats": "node --experimental-strip-types src/cli.ts stats",
     "run": "node --experimental-strip-types src/cli.ts run",
     "test": "node --test --experimental-strip-types tests/*.test.ts"
   },

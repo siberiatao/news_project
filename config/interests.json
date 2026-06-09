@@ -27,6 +27,11 @@
     "happening": 18
   },
   "sourceReliabilityWeight": 20,
+  "clustering": {
+    "similarityThreshold": 0.42,
+    "maxHoursApart": 48,
+    "minSharedTokens": 2
+  },
   "keyEntities": [
     "NVIDIA",
     "AMD",

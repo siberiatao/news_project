@@ -15,9 +15,9 @@ export function normalizeItem(
   const combinedText = [title, summary].filter(Boolean).join(" ");
   const entities = extractEntities(combinedText, interests.keyEntities);
   const tags = extractTags(combinedText, source, interests, entities);
-  const hash = stableHash(`${title.toLowerCase()}|${source.id}`);
-  const section = chooseSection(tags, source.category);
-  const scoring = scoreArticle({ title, summary, tags, entities, section, source }, interests);
+  const hash = stableHash(title.toLowerCase());
+  const section = source.type === "x" ? "x" : chooseSection(tags, source.category);
+  const scoring = scoreArticle({ title, summary, tags, entities, section, source, raw: item.raw }, interests);
 
   return {
     sourceId: source.id,

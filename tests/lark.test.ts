@@ -13,6 +13,7 @@ test("builds capped Lark text", () => {
     path: "/tmp/brief.md",
     markdown: "",
     itemCount: 1,
+    articleCount: 1,
     windowStart: "2026-06-07T00:00:00.000Z",
     windowEnd: "2026-06-08T00:00:00.000Z"
   };
@@ -25,7 +26,12 @@ test("builds capped Lark text", () => {
     domainWeights: {},
     sourceReliabilityWeight: 20,
     keyEntities: [],
-    keywords: {}
+    keywords: {},
+    clustering: {
+      similarityThreshold: 0.42,
+      maxHoursApart: 48,
+      minSharedTokens: 2
+    }
   };
   const article: StoredArticle = {
     id: 1,

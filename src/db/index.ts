@@ -2,7 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { paths } from "../config.ts";
-import type { NewsSource, NormalizedArticle, StoredArticle } from "../types.ts";
+import type { NewsSource, NormalizedArticle, StoredArticle, StoryCluster } from "../types.ts";
 
 export class NewsDatabase {
   private db: DatabaseSync;
@@ -46,7 +46,7 @@ export class NewsDatabase {
       source.id,
       source.name,
       source.type,
-      source.url,
+      source.url ?? "",
       source.homepage ?? null,
       source.language ?? null,
       source.region ?? null,
@@ -132,6 +132,84 @@ export class NewsDatabase {
       INSERT INTO briefs (window_start, window_end, path, item_count, generated_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(windowStart, windowEnd, path, itemCount, new Date().toISOString());
+  }
+
+  replaceStories(stories: StoryCluster[]): void {
+    this.db.exec("BEGIN");
+    try {
+      const upsertStory = this.db.prepare(`
+        INSERT INTO stories (
+          story_key, title, summary, section, score, score_reasons_json,
+          first_seen_at, last_seen_at, tags_json, entities_json, sources_json, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(story_key) DO UPDATE SET
+          title = excluded.title,
+          summary = excluded.summary,
+          section = excluded.section,
+          score = excluded.score,
+          score_reasons_json = excluded.score_reasons_json,
+          first_seen_at = excluded.first_seen_at,
+          last_seen_at = excluded.last_seen_at,
+          tags_json = excluded.tags_json,
+          entities_json = excluded.entities_json,
+          sources_json = excluded.sources_json,
+          updated_at = excluded.updated_at
+        RETURNING id
+      `);
+      const deleteLinks = this.db.prepare("DELETE FROM story_articles WHERE story_id = ?");
+      const insertLink = this.db.prepare(`
+        INSERT INTO story_articles (story_id, article_id, similarity)
+        VALUES (?, ?, ?)
+      `);
+
+      for (const story of stories) {
+        const row = upsertStory.get(
+          story.key,
+          story.title,
+          story.summary ?? null,
+          story.section,
+          story.score,
+          JSON.stringify(story.scoreReasons),
+          story.firstSeenAt,
+          story.lastSeenAt,
+          JSON.stringify(story.tags),
+          JSON.stringify(story.entities),
+          JSON.stringify(story.sources),
+          new Date().toISOString()
+        ) as { id: number };
+        deleteLinks.run(row.id);
+        for (const article of story.articles) {
+          insertLink.run(row.id, article.id, article.id === story.articles[0]?.id ? 1 : 0.5);
+        }
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  searchArticles(query: string, limit = 20): StoredArticle[] {
+    const pattern = `%${query}%`;
+    const rows = this.db.prepare(`
+      SELECT *
+      FROM articles
+      WHERE title LIKE ? OR summary LIKE ? OR entities_json LIKE ? OR tags_json LIKE ?
+      ORDER BY published_at DESC, score DESC
+      LIMIT ?
+    `).all(pattern, pattern, pattern, pattern, limit) as ArticleRow[];
+    return rows.map(rowToStoredArticle);
+  }
+
+  getStats(): { articles: number; stories: number; sources: number; failedJobs: number } {
+    const scalar = (sql: string) => Number((this.db.prepare(sql).get() as { count: number }).count);
+    return {
+      articles: scalar("SELECT COUNT(*) AS count FROM articles"),
+      stories: scalar("SELECT COUNT(*) AS count FROM stories"),
+      sources: scalar("SELECT COUNT(*) AS count FROM sources WHERE enabled = 1"),
+      failedJobs: scalar("SELECT COUNT(*) AS count FROM fetch_jobs WHERE status = 'failed'")
+    };
   }
 }
 

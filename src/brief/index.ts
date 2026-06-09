@@ -1,25 +1,26 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { paths } from "../config.ts";
-import type { InterestsConfig, StoredArticle } from "../types.ts";
+import type { InterestsConfig, StoryCluster } from "../types.ts";
 
 export type BriefResult = {
   path: string;
   markdown: string;
   itemCount: number;
+  articleCount: number;
   windowStart: string;
   windowEnd: string;
 };
 
 export async function generateMarkdownBrief(
-  articles: StoredArticle[],
+  stories: StoryCluster[],
   interests: InterestsConfig,
   windowStart: string,
   windowEnd: string
 ): Promise<BriefResult> {
   await mkdir(paths.briefsDir, { recursive: true });
 
-  const grouped = groupBySection(articles);
+  const grouped = groupBySection(stories);
   const lines: string[] = [];
   lines.push(`# Daily News Brief`);
   lines.push("");
@@ -27,26 +28,35 @@ export async function generateMarkdownBrief(
   lines.push(`Generated: ${formatDate(new Date().toISOString())}`);
   lines.push("");
 
-  if (articles.length === 0) {
-    lines.push("No articles matched the current briefing threshold.");
+  lines.push(`Stories: ${stories.length}`);
+  lines.push(`Source items: ${stories.reduce((count, story) => count + story.articles.length, 0)}`);
+  lines.push("");
+
+  if (stories.length === 0) {
+    lines.push("No stories matched the current briefing threshold.");
     lines.push("");
   }
 
   for (const section of interests.sectionOrder) {
-    const sectionArticles = grouped.get(section) ?? [];
-    if (sectionArticles.length === 0) continue;
+    const sectionStories = grouped.get(section) ?? [];
+    if (sectionStories.length === 0) continue;
     lines.push(`## ${interests.sections[section] ?? titleCase(section)}`);
     lines.push("");
 
-    for (const article of sectionArticles.slice(0, 8)) {
-      lines.push(`### ${article.title}`);
+    for (const story of sectionStories.slice(0, 8)) {
+      lines.push(`### ${story.title}`);
       lines.push("");
-      lines.push(`- Summary: ${article.summary || article.title}`);
-      lines.push(`- Importance: ${article.score}/100`);
-      lines.push(`- Sources: ${article.sourceName}`);
-      lines.push(`- Original: ${article.canonicalUrl}`);
-      lines.push(`- Why it matters: ${whyItMatters(article)}`);
-      lines.push(`- Watch next: ${watchNext(article)}`);
+      lines.push(`- Summary: ${story.summary || story.title}`);
+      lines.push(`- Importance: ${story.score}/100`);
+      lines.push(`- Coverage: ${story.articles.length} item(s) from ${story.sources.length} source(s)`);
+      lines.push(`- Sources: ${story.sources.join(", ")}`);
+      lines.push(`- First / latest: ${formatDate(story.firstSeenAt)} / ${formatDate(story.lastSeenAt)}`);
+      lines.push(`- Why it matters: ${whyItMatters(story)}`);
+      lines.push(`- Watch next: ${watchNext(story)}`);
+      lines.push("- Original links:");
+      for (const article of story.articles.slice(0, 5)) {
+        lines.push(`  - [${article.sourceName}](${article.canonicalUrl})`);
+      }
       lines.push("");
     }
   }
@@ -59,7 +69,8 @@ export async function generateMarkdownBrief(
   return {
     path: outputPath,
     markdown,
-    itemCount: articles.length,
+    itemCount: stories.length,
+    articleCount: stories.reduce((count, story) => count + story.articles.length, 0),
     windowStart,
     windowEnd
   };
@@ -71,38 +82,41 @@ export function resolveBriefWindow(hours: number, end = new Date()): { windowSta
   return { windowStart, windowEnd };
 }
 
-function groupBySection(articles: StoredArticle[]): Map<string, StoredArticle[]> {
-  const grouped = new Map<string, StoredArticle[]>();
-  for (const article of articles) {
-    const list = grouped.get(article.section) ?? [];
-    list.push(article);
-    grouped.set(article.section, list);
+function groupBySection(stories: StoryCluster[]): Map<string, StoryCluster[]> {
+  const grouped = new Map<string, StoryCluster[]>();
+  for (const story of stories) {
+    const list = grouped.get(story.section) ?? [];
+    list.push(story);
+    grouped.set(story.section, list);
   }
   return grouped;
 }
 
-function whyItMatters(article: StoredArticle): string {
-  if (article.entities.length > 0) {
-    return `Touches key watchlist entities: ${article.entities.join(", ")}.`;
+function whyItMatters(story: StoryCluster): string {
+  if (story.sources.length > 1) {
+    return `${story.sources.length} independent sources are covering the same development.`;
   }
-  const domainReason = article.scoreReasons.find((reason) => reason.startsWith("domain:"));
+  if (story.entities.length > 0) {
+    return `Touches key watchlist entities: ${story.entities.join(", ")}.`;
+  }
+  const domainReason = story.scoreReasons.find((reason) => reason.startsWith("domain:"));
   if (domainReason) {
-    return `Matches your ${article.section} intelligence lane.`;
+    return `Matches your ${story.section} intelligence lane.`;
   }
   return "It passed the current importance threshold for the briefing window.";
 }
 
-function watchNext(article: StoredArticle): string {
-  if (article.section === "happening") {
+function watchNext(story: StoryCluster): string {
+  if (story.section === "happening") {
     return "Check whether more trusted sources confirm the development and whether follow-on policy or market reaction appears.";
   }
-  if (article.section === "semiconductor") {
+  if (story.section === "semiconductor") {
     return "Watch for supply chain, export control, capex, or customer impact.";
   }
-  if (article.section === "finance") {
+  if (story.section === "finance") {
     return "Watch market pricing, earnings revisions, rate expectations, and second-order company impact.";
   }
-  if (article.section === "tech") {
+  if (story.section === "tech") {
     return "Watch product, platform, regulation, and competitive response.";
   }
   return "Watch for updates from primary sources and higher-quality follow-up reporting.";

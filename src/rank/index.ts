@@ -7,6 +7,7 @@ type RankableArticle = {
   entities: string[];
   section: string;
   source: NewsSource;
+  raw?: Record<string, unknown>;
 };
 
 export function scoreArticle(article: RankableArticle, interests: InterestsConfig): { score: number; reasons: string[] } {
@@ -43,7 +44,21 @@ export function scoreArticle(article: RankableArticle, interests: InterestsConfi
     reasons.push("happening+8");
   }
 
-  return { score, reasons };
+  if (article.source.type === "x") {
+    const metrics = article.raw?.publicMetrics as Record<string, number> | undefined;
+    const engagement =
+      (metrics?.like_count ?? 0) +
+      (metrics?.retweet_count ?? 0) * 2 +
+      (metrics?.quote_count ?? 0) * 2 +
+      (metrics?.reply_count ?? 0);
+    const socialPoints = Math.min(20, Math.floor(Math.log10(engagement + 1) * 6));
+    if (socialPoints > 0) {
+      score += socialPoints;
+      reasons.push(`x-engagement+${socialPoints}`);
+    }
+  }
+
+  return { score: Math.min(100, score), reasons };
 }
 
 function escapeRegExp(value: string): string {
