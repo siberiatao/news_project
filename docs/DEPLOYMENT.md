@@ -34,6 +34,47 @@ LARK_DRY_RUN=0
 
 Use `LARK_DRY_RUN=1` to print the payload without sending it.
 
+## HTTP Proxy
+
+Node.js 24 can route built-in `fetch()` through an HTTP proxy when environment
+proxy support is enabled. The RSS adapter's `curl` fallback also reads the same
+proxy variables.
+
+If the proxy is reachable at a normal network address:
+
+```text
+NODE_USE_ENV_PROXY=1
+HTTP_PROXY=http://proxy.example.com:7890
+HTTPS_PROXY=http://proxy.example.com:7890
+NO_PROXY=localhost,127.0.0.1,::1
+```
+
+If Clash or another proxy runs on the same Linux server as Docker, do not use
+`127.0.0.1` in the container. Use the host alias configured in
+`docker-compose.yml`:
+
+```text
+NODE_USE_ENV_PROXY=1
+HTTP_PROXY=http://host.docker.internal:7890
+HTTPS_PROXY=http://host.docker.internal:7890
+NO_PROXY=localhost,127.0.0.1,::1
+```
+
+Use Clash's HTTP or mixed port. A `socks5://` URL is not handled directly by
+Node's built-in environment proxy support.
+
+Test connectivity from the container:
+
+```bash
+docker compose run --rm news-brief ingest
+```
+
+To inspect the proxy variables seen inside the container:
+
+```bash
+docker compose run --rm --entrypoint env news-brief | grep -i proxy
+```
+
 ## Docker
 
 Build:
