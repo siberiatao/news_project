@@ -54,6 +54,10 @@ test("keeps X posts in the X section while preserving topic tags", () => {
       similarityThreshold: 0.42,
       maxHoursApart: 48,
       minSharedTokens: 2
+    },
+    report: {
+      maxStoriesPerSection: 8,
+      bilingual: true
     }
   };
   const normalized = normalizeItem({

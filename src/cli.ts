@@ -1,10 +1,12 @@
 import { mkdir } from "node:fs/promises";
-import { generateMarkdownBrief, resolveBriefWindow } from "./brief/index.ts";
+import { generateBrief, resolveBriefWindow, selectReportStories } from "./brief/index.ts";
 import { clusterArticles } from "./cluster/index.ts";
 import { loadInterests, loadSources, paths } from "./config.ts";
 import { NewsDatabase } from "./db/index.ts";
 import { sendBriefToLark } from "./delivery/lark.ts";
+import { enrichStories } from "./enrich/index.ts";
 import { ingestSources } from "./ingest/index.ts";
+import { startDashboard } from "./web/server.ts";
 
 const command = process.argv[2] ?? "help";
 
@@ -75,6 +77,12 @@ async function main(): Promise<void> {
       return;
     }
 
+    if (command === "serve") {
+      const port = readPort(8787);
+      await startDashboard({ db, interests, sources, port });
+      return;
+    }
+
     if (command === "search") {
       const query = process.argv.slice(3).join(" ").trim();
       if (!query) throw new Error("Usage: search <query>");
@@ -109,14 +117,18 @@ async function createBrief(
   const articles = db.listArticles(windowStart, windowEnd, interests.minScoreForBrief);
   const stories = clusterArticles(articles, interests);
   db.replaceStories(stories);
-  const result = await generateMarkdownBrief(stories, interests, windowStart, windowEnd);
+  const reportStories = selectReportStories(stories, interests);
+  const enrichedStories = await enrichStories(reportStories);
+  const result = await generateBrief(enrichedStories, interests, windowStart, windowEnd);
   db.insertBrief(windowStart, windowEnd, result.path, result.itemCount);
-  console.log(`Generated ${result.itemCount} story brief from ${result.articleCount} source items: ${result.path}`);
+  console.log(`Generated ${result.itemCount} story brief from ${result.articleCount} source items`);
+  console.log(`Markdown: ${result.path}`);
+  console.log(`HTML: ${result.htmlPath}`);
 
   if (options.deliver) {
     const delivery = await sendBriefToLark(
       result,
-      stories.map((story) => story.articles[0]),
+      reportStories.map((story) => story.articles[0]),
       interests
     );
     console.log(delivery.message);
@@ -150,6 +162,18 @@ function readHours(fallback: number): number {
   return hours;
 }
 
+function readPort(fallback: number): number {
+  const inline = process.argv.find((argument) => argument.startsWith("--port="));
+  const index = process.argv.indexOf("--port");
+  const raw = inline?.slice("--port=".length) ?? (index >= 0 ? process.argv[index + 1] : undefined);
+  if (!raw) return fallback;
+  const port = Number.parseInt(raw, 10);
+  if (!Number.isFinite(port) || port < 1 || port > 65535) {
+    throw new Error("--port must be between 1 and 65535");
+  }
+  return port;
+}
+
 function printIngestSummary(summaries: Awaited<ReturnType<typeof ingestSources>>): void {
   for (const summary of summaries) {
     if (summary.failed) {
@@ -173,6 +197,7 @@ Commands:
   cluster   Rebuild story clusters for the current briefing window
   sources   Show configured source and credential status
   stats     Show local database counts
+  serve     Start the local Web Dashboard
   search    Search stored articles, for example: search NVIDIA
   run       Ingest, cluster, and generate a brief
   run --deliver
@@ -180,6 +205,7 @@ Commands:
 
 Options:
   --hours N Override the briefing/cluster window (1-168 hours)
+  --port N  Dashboard port (default: 8787)
 `);
 }
 

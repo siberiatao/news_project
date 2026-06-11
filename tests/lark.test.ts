@@ -11,7 +11,9 @@ test("creates deterministic Lark signature for timestamp and secret", () => {
 test("builds capped Lark text", () => {
   const brief: BriefResult = {
     path: "/tmp/brief.md",
+    htmlPath: "/tmp/brief.html",
     markdown: "",
+    html: "",
     itemCount: 1,
     articleCount: 1,
     windowStart: "2026-06-07T00:00:00.000Z",
@@ -31,6 +33,10 @@ test("builds capped Lark text", () => {
       similarityThreshold: 0.42,
       maxHoursApart: 48,
       minSharedTokens: 2
+    },
+    report: {
+      maxStoriesPerSection: 8,
+      bilingual: true
     }
   };
   const article: StoredArticle = {

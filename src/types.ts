@@ -61,6 +61,10 @@ export type InterestsConfig = {
     maxHoursApart: number;
     minSharedTokens: number;
   };
+  report: {
+    maxStoriesPerSection: number;
+    bilingual: boolean;
+  };
 };
 
 export type StoredArticle = NormalizedArticle & {
@@ -81,4 +85,38 @@ export type StoryCluster = {
   entities: string[];
   sources: string[];
   articles: StoredArticle[];
+};
+
+export type StoryEnrichment = {
+  storyKey: string;
+  titleZh: string;
+  summaryZh: string;
+  whyZh: string;
+  watchZh: string;
+  provider: string;
+};
+
+export type EnrichedStory = StoryCluster & {
+  enrichment: StoryEnrichment;
+};
+
+export type SourceHealth = {
+  id: string;
+  name: string;
+  type: string;
+  enabled: boolean;
+  status: "healthy" | "degraded" | "unknown";
+  lastFetchedAt?: string;
+  lastStatus?: string;
+  lastItemCount?: number;
+  lastError?: string;
+};
+
+export type BriefRecord = {
+  id: number;
+  windowStart: string;
+  windowEnd: string;
+  path: string;
+  itemCount: number;
+  generatedAt: string;
 };

@@ -1,82 +1,74 @@
-# Phase 1 Deployment
+# Deployment
 
-Phase 1 packages the personal news intelligence MVP as a Dockerized command
-that can be triggered by a scheduler such as openclaw/hermes and pushed to Lark.
+本项目采用两个互不耦合的运行角色：
 
-## Local Run
+- `news-brief`：由 cron、Hermes 或 openclaw 定时触发的一次性采集任务。
+- `dashboard`：常驻 Web 服务，读取同一个 SQLite 数据库和 HTML 日报目录。
 
-```bash
-node --experimental-strip-types src/cli.ts run
-```
-
-`run` performs:
-
-1. RSS/RSSHub ingestion.
-2. Optional X recent-search ingestion.
-3. SQLite upsert and URL dedupe.
-4. Event clustering and multi-source ranking.
-5. Daily Markdown brief generation.
-
-Delivery is not automatic. Add `--deliver` only when a delivery adapter should
-run.
-
-## X API Setup
-
-Create an X developer App and put its app-only Bearer Token in `.env`:
-
-```text
-X_BEARER_TOKEN=...
-```
-
-Then edit `config/sources.json` and set `"enabled": true` for the desired X
-sources:
-
-- `x-ai-chip-watch`
-- `x-key-accounts`
-
-Check configuration:
+## Server Setup
 
 ```bash
-docker compose run --rm news-brief sources
-```
-
-Run ingestion:
-
-```bash
-docker compose run --rm news-brief ingest
-```
-
-X recent search covers the most recent seven days. Keep queries narrow to
-control noise and API usage. Official documentation:
-
-- https://docs.x.com/x-api/posts/search/introduction
-- https://docs.x.com/x-api/posts/search/integrate/overview
-
-## Optional Lark Setup
-
-Create `.env` from `.env.example`:
-
-```bash
+git clone git@github.com:siberiatao/news_project.git
+cd news_project
 cp .env.example .env
+docker compose build
 ```
 
-Set:
+先运行一次完整任务：
+
+```bash
+docker compose run --rm news-brief run
+```
+
+启动 Dashboard：
+
+```bash
+docker compose up -d dashboard
+```
+
+默认地址为 `http://SERVER_IP:8787`。检查服务：
+
+```bash
+curl http://127.0.0.1:8787/health
+docker compose logs --tail=100 dashboard
+```
+
+## Daily Scheduling
+
+Hermes/openclaw 或 cron 每天执行：
+
+```bash
+docker compose -f /path/to/news_project/docker-compose.yml run --rm news-brief run
+```
+
+需要启用交付通道时改为：
+
+```bash
+docker compose -f /path/to/news_project/docker-compose.yml run --rm news-brief run --deliver
+```
+
+任务应关注非零退出码。采集和生成的数据持久化在宿主机 `./data`。
+
+## Bilingual Model
+
+模型增强是可选项。编辑 `.env`：
 
 ```text
-LARK_WEBHOOK_URL=https://open.larksuite.com/open-apis/bot/v2/hook/...
-LARK_WEBHOOK_SECRET=optional-signing-secret
-LARK_DRY_RUN=0
+ENRICHMENT_API_KEY=...
+ENRICHMENT_BASE_URL=https://api.openai.com/v1
+ENRICHMENT_MODEL=gpt-4.1-mini
+ENRICHMENT_TIMEOUT_MS=30000
 ```
 
-Use `LARK_DRY_RUN=1` to print the payload without sending it.
+支持兼容 OpenAI `/chat/completions` 的云端或本地服务。未配置、超时或返回异常时，
+系统自动使用规则式中英双语内容，采集任务不会因此失败。
 
 ## HTTP Proxy
 
-Node.js 24 can route built-in `fetch()` through an HTTP proxy when environment
-proxy support is enabled. The RSS adapter's `curl` fallback also reads the same
-proxy variables.
+Node.js 24 的内置 `fetch()` 需要 `NODE_USE_ENV_PROXY=1` 才会读取代理变量。
+RSS adapter 的 `curl` fallback 也使用相同变量。
 
-If the proxy is reachable at a normal network address:
+代理在普通网络地址：
 
 ```text
 NODE_USE_ENV_PROXY=1
@@ -85,9 +77,7 @@ HTTPS_PROXY=http://proxy.example.com:7890
 NO_PROXY=localhost,127.0.0.1,::1
 ```
 
-If Clash or another proxy runs on the same Linux server as Docker, do not use
-`127.0.0.1` in the container. Use the host alias configured in
-`docker-compose.yml`:
+代理运行在 Docker 宿主机：
 
 ```text
 NODE_USE_ENV_PROXY=1
@@ -96,48 +86,28 @@ HTTPS_PROXY=http://host.docker.internal:7890
 NO_PROXY=localhost,127.0.0.1,::1
 ```
 
-Use Clash's HTTP or mixed port. A `socks5://` URL is not handled directly by
-Node's built-in environment proxy support.
+使用 Clash HTTP 或 mixed 端口。Node 环境代理不直接处理 `socks5://`。
 
-Test connectivity from the container:
+## Optional Lark Delivery
 
-```bash
-docker compose run --rm news-brief ingest
+```text
+LARK_WEBHOOK_URL=https://open.larksuite.com/open-apis/bot/v2/hook/...
+LARK_WEBHOOK_SECRET=
+LARK_DRY_RUN=0
 ```
 
-To inspect the proxy variables seen inside the container:
+`LARK_DRY_RUN=1` 只打印 payload，不发送。
+
+## Update
 
 ```bash
-docker compose run --rm --entrypoint env news-brief | grep -i proxy
-```
-
-## Docker
-
-Build:
-
-```bash
+git pull
 docker compose build
-```
-
-Run once:
-
-```bash
 docker compose run --rm news-brief run
+docker compose up -d dashboard
 ```
 
-Generate without delivery:
-
-```bash
-docker compose run --rm news-brief brief
-```
-
-Generate and force delivery:
-
-```bash
-docker compose run --rm news-brief deliver
-```
-
-Useful Phase 2 commands:
+## Useful Commands
 
 ```bash
 docker compose run --rm news-brief sources
@@ -145,59 +115,5 @@ docker compose run --rm news-brief stats
 docker compose run --rm news-brief search NVIDIA
 docker compose run --rm news-brief cluster --hours 72
 docker compose run --rm news-brief brief --hours 72
+docker compose ps
 ```
-
-Persistent data is mounted at:
-
-```text
-./data:/app/data
-```
-
-## GitHub To Server
-
-If the deployment server is not this Mac, publish the repository to GitHub first,
-then pull it on the server.
-
-On this Mac:
-
-```bash
-git remote add origin git@github.com:<owner>/<repo>.git
-git branch -M main
-git push -u origin main
-```
-
-On the deployment server:
-
-```bash
-git clone git@github.com:<owner>/<repo>.git
-cd <repo>
-cp .env.example .env
-```
-
-Edit `.env` on the server and set the real Lark webhook values. Do not commit
-`.env`.
-
-Then build and test:
-
-```bash
-docker compose build
-docker compose run --rm news-brief run
-```
-
-## Hermes
-
-For a scheduler such as openclaw/hermes, use a daily 08:00 job that runs one of:
-
-```bash
-docker compose -f /path/to/news_project/docker-compose.yml run --rm news-brief run
-```
-
-or, if Hermes runs inside an environment with the image already built:
-
-```bash
-docker run --rm --env-file /path/to/news_project/.env -v /path/to/news_project/data:/app/data personal-news-intelligence:phase1 run
-```
-
-The job should alert on non-zero exit codes. Lark webhook failures set a non-zero
-exit code; missing `LARK_WEBHOOK_URL` skips delivery without failing so local
-development remains convenient.

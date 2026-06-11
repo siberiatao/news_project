@@ -2,7 +2,14 @@ import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { paths } from "../config.ts";
-import type { NewsSource, NormalizedArticle, StoredArticle, StoryCluster } from "../types.ts";
+import type {
+  BriefRecord,
+  NewsSource,
+  NormalizedArticle,
+  SourceHealth,
+  StoredArticle,
+  StoryCluster
+} from "../types.ts";
 
 export class NewsDatabase {
   private db: DatabaseSync;
@@ -211,6 +218,55 @@ export class NewsDatabase {
       failedJobs: scalar("SELECT COUNT(*) AS count FROM fetch_jobs WHERE status = 'failed'")
     };
   }
+
+  listSourceHealth(): SourceHealth[] {
+    const rows = this.db.prepare(`
+      SELECT
+        s.id, s.name, s.type, s.enabled,
+        j.status AS last_status,
+        j.finished_at AS last_fetched_at,
+        j.item_count AS last_item_count,
+        j.error AS last_error
+      FROM sources s
+      LEFT JOIN fetch_jobs j ON j.id = (
+        SELECT id FROM fetch_jobs WHERE source_id = s.id ORDER BY id DESC LIMIT 1
+      )
+      ORDER BY s.enabled DESC, s.name ASC
+    `).all() as SourceHealthRow[];
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      enabled: row.enabled === 1,
+      status: row.last_status === "success" ? "healthy" : row.last_status === "failed" ? "degraded" : "unknown",
+      lastFetchedAt: row.last_fetched_at ?? undefined,
+      lastStatus: row.last_status ?? undefined,
+      lastItemCount: row.last_item_count ?? undefined,
+      lastError: row.last_error ?? undefined
+    }));
+  }
+
+  listBriefs(limit = 20): BriefRecord[] {
+    const rows = this.db.prepare(`
+      SELECT b.id, b.window_start, b.window_end, b.path, b.item_count, b.generated_at
+      FROM briefs b
+      WHERE b.id = (
+        SELECT MAX(latest.id)
+        FROM briefs latest
+        WHERE latest.path = b.path
+      )
+      ORDER BY b.id DESC
+      LIMIT ?
+    `).all(limit) as BriefRow[];
+    return rows.map((row) => ({
+      id: row.id,
+      windowStart: row.window_start,
+      windowEnd: row.window_end,
+      path: row.path,
+      itemCount: row.item_count,
+      generatedAt: row.generated_at
+    }));
+  }
 }
 
 type ArticleRow = {
@@ -232,6 +288,26 @@ type ArticleRow = {
   score_reasons_json: string;
   metadata_json: string;
   created_at: string;
+};
+
+type SourceHealthRow = {
+  id: string;
+  name: string;
+  type: string;
+  enabled: number;
+  last_status: string | null;
+  last_fetched_at: string | null;
+  last_item_count: number | null;
+  last_error: string | null;
+};
+
+type BriefRow = {
+  id: number;
+  window_start: string;
+  window_end: string;
+  path: string;
+  item_count: number;
+  generated_at: string;
 };
 
 function rowToStoredArticle(row: ArticleRow): StoredArticle {

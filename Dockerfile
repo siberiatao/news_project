@@ -16,6 +16,7 @@ COPY README.md ./
 RUN mkdir -p /app/data
 
 VOLUME ["/app/data"]
+EXPOSE 8787
 
 ENTRYPOINT ["node", "--experimental-strip-types", "src/cli.ts"]
 CMD ["run"]

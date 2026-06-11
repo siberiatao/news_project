@@ -32,6 +32,10 @@
     "maxHoursApart": 48,
     "minSharedTokens": 2
   },
+  "report": {
+    "maxStoriesPerSection": 8,
+    "bilingual": true
+  },
   "keyEntities": [
     "NVIDIA",
     "AMD",

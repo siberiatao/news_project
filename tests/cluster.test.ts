@@ -17,6 +17,10 @@ const interests: InterestsConfig = {
     similarityThreshold: 0.35,
     maxHoursApart: 48,
     minSharedTokens: 2
+  },
+  report: {
+    maxStoriesPerSection: 8,
+    bilingual: true
   }
 };
 

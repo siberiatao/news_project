@@ -1,9 +1,9 @@
 {
   "name": "personal-news-intelligence",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Personal news intelligence system MVP: RSS ingestion, SQLite storage, ranking, and Markdown daily briefs.",
+  "description": "Personal news intelligence system with RSS ingestion, clustering, bilingual reports, and a local dashboard.",
   "scripts": {
     "init-db": "node --experimental-strip-types src/cli.ts init-db",
     "ingest": "node --experimental-strip-types src/cli.ts ingest",
@@ -11,6 +11,7 @@
     "cluster": "node --experimental-strip-types src/cli.ts cluster",
     "sources": "node --experimental-strip-types src/cli.ts sources",
     "stats": "node --experimental-strip-types src/cli.ts stats",
+    "serve": "node --experimental-strip-types src/cli.ts serve",
     "run": "node --experimental-strip-types src/cli.ts run",
     "test": "node --test --experimental-strip-types tests/*.test.ts"
   },
