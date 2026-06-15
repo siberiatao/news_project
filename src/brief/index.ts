@@ -92,12 +92,23 @@ export function renderMarkdown(
       lines.push(`- **中文摘要：** ${story.enrichment.summaryZh}`);
       lines.push(`- **English summary:** ${story.summary || story.title}`);
       lines.push(`- **重要性 / Importance：** ${story.score}/100`);
+      lines.push(`- **事件状态 / Status：** ${statusZh(story.status)} / ${story.status.toUpperCase()}`);
+      lines.push(`- **演进 / Evolution：** 第 ${story.updateCount} 次追踪，本轮新增 ${story.newArticleCount} 篇报道`);
       lines.push(`- **覆盖 / Coverage：** ${story.articles.length} item(s), ${story.sources.length} source(s)`);
       lines.push(`- **为何关注 / Why it matters：** ${story.enrichment.whyZh}`);
       lines.push(`- **后续观察 / Watch next：** ${story.enrichment.watchZh}`);
       lines.push(`- **来源 / Sources：** ${story.sources.join(", ")}`);
       for (const article of story.articles.slice(0, 5)) {
         lines.push(`  - [${article.sourceName}](${article.canonicalUrl})`);
+      }
+      if (story.status === "developing") {
+        lines.push("- **时间线 / Timeline：**");
+        if (story.previousLastSeenAt) {
+          lines.push(`  - ${formatDate(story.previousLastSeenAt, "zh-CN", true)} · 上次已知进展 / Previous known update`);
+        }
+        for (const article of timelineArticles(story)) {
+          lines.push(`  - ${formatDate(article.publishedAt, "zh-CN", true)} · ${article.sourceName} · ${article.title}`);
+        }
       }
       lines.push("");
     }
@@ -174,12 +185,22 @@ function renderStory(story: EnrichedStory, index: number): string {
     `<a href="${escapeAttribute(article.canonicalUrl)}" target="_blank" rel="noreferrer">${escapeHtml(article.sourceName)}</a>`
   ).join("");
   const entities = story.entities.slice(0, 6).map((entity) => `<span>${escapeHtml(entity)}</span>`).join("");
+  const previousUpdate = story.previousLastSeenAt
+    ? `<div><time>${escapeHtml(formatDate(story.previousLastSeenAt, "zh-CN", true))}</time><span>HISTORY</span><p>上次已知进展 / Previous known update</p></div>`
+    : "";
+  const timeline = story.status === "developing"
+    ? `<div class="timeline"><label>事件时间线 / TIMELINE</label>${previousUpdate}${timelineArticles(story).map((article) =>
+      `<div><time>${escapeHtml(formatDate(article.publishedAt, "zh-CN", true))}</time><span>${escapeHtml(article.sourceName)}</span><p>${escapeHtml(article.title)}</p></div>`
+    ).join("")}</div>`
+    : "";
   return `<article class="story">
     <div class="story-rank">${String(index).padStart(2, "0")}</div>
     <div class="story-main">
       <div class="story-topline">
         <div class="score"><i style="width:${Math.min(100, story.score)}%"></i></div>
         <b>${story.score}</b><span>IMPORTANCE</span>
+        <span class="story-status ${story.status}">${escapeHtml(statusZh(story.status))}</span>
+        <span>TRACKED ${story.updateCount}× · +${story.newArticleCount} NEW</span>
         <time>${escapeHtml(relativeTime(story.lastSeenAt))}</time>
       </div>
       <h3>${escapeHtml(story.enrichment.titleZh)}</h3>
@@ -192,12 +213,23 @@ function renderStory(story: EnrichedStory, index: number): string {
         <div><label>为何关注</label><p>${escapeHtml(story.enrichment.whyZh)}</p></div>
         <div><label>后续观察</label><p>${escapeHtml(story.enrichment.watchZh)}</p></div>
       </div>
+      ${timeline}
       <div class="story-footer">
         <div class="tags">${entities}</div>
         <div class="sources"><span>${story.sources.length} SOURCES</span>${links}</div>
       </div>
     </div>
   </article>`;
+}
+
+function timelineArticles(story: EnrichedStory): EnrichedStory["articles"] {
+  return [...story.articles]
+    .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
+    .slice(-4);
+}
+
+function statusZh(status: EnrichedStory["status"]): string {
+  return status === "developing" ? "发展中" : status === "ongoing" ? "持续关注" : "新事件";
 }
 
 function groupBySection(stories: EnrichedStory[]): Map<string, EnrichedStory[]> {
@@ -250,9 +282,11 @@ h1{margin:12px 0 34px;font-family:Georgia,"Songti SC",serif;font-size:64px;line-
 .section-nav{position:sticky;top:0;z-index:5;display:flex;gap:24px;overflow:auto;background:rgba(247,248,246,.96);border-bottom:1px solid var(--ink);padding:14px 0}.section-nav a{color:var(--ink);text-decoration:none;white-space:nowrap;font-size:13px;font-weight:700}
 .report-section{padding:50px 0}.section-header{display:grid;grid-template-columns:48px 1fr auto;gap:18px;align-items:end;padding-bottom:18px;border-bottom:3px solid var(--ink)}.section-index{font-size:12px;color:var(--red);font-weight:800}.section-header h2{margin:0;font-family:Georgia,"Songti SC",serif;font-size:32px}.section-header p{margin:4px 0 0;color:var(--muted);font-size:12px;font-weight:700}.section-count{font-size:11px;color:var(--muted)}
 .story{display:grid;grid-template-columns:48px 1fr;gap:18px;padding:30px 0;border-bottom:1px solid var(--line)}.story-rank{font-family:Georgia,serif;font-size:16px;color:var(--muted)}.story-topline{display:flex;align-items:center;gap:8px;font-size:9px;color:var(--muted);font-weight:800}.story-topline time{margin-left:auto}.score{width:90px;height:4px;background:#dfe3e4}.score i{display:block;height:100%;background:var(--red)}
+.story-status{padding:4px 7px;border:1px solid var(--line);color:var(--ink)}.story-status.developing{background:var(--red);border-color:var(--red);color:#fff}.story-status.ongoing{border-color:var(--teal);color:var(--teal)}
 .story h3{font-family:Georgia,"Songti SC",serif;font-size:29px;line-height:1.24;margin:14px 0 4px;max-width:850px}.title-en{font-family:Georgia,serif;font-size:17px;line-height:1.45;color:#4d575d;margin:0 0 24px}
 .bilingual,.analysis{display:grid;grid-template-columns:1fr 1fr;gap:30px}.bilingual{padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.analysis{padding:20px 0}.bilingual div+div,.analysis div+div{border-left:1px solid var(--line);padding-left:30px}label{display:block;font-size:9px;color:var(--teal);font-weight:900;margin-bottom:8px}.bilingual p,.analysis p{margin:0;line-height:1.7;font-size:14px}
+.timeline{margin:0 0 22px;padding:18px 20px;border-left:3px solid var(--red);background:#fff}.timeline>div{display:grid;grid-template-columns:110px 90px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11px}.timeline>div:last-child{border-bottom:0}.timeline time,.timeline span{color:var(--muted)}.timeline p{margin:0;font-family:Georgia,serif}
 .story-footer{display:flex;justify-content:space-between;gap:20px;align-items:center}.tags,.sources{display:flex;gap:8px;flex-wrap:wrap}.tags span{font-size:10px;padding:4px 7px;border:1px solid var(--line)}.sources span,.sources a{font-size:10px}.sources a{color:var(--teal);font-weight:700}
 footer{max-width:1180px;margin:30px auto 0;padding:24px;border-top:1px solid var(--ink);display:flex;justify-content:space-between;color:var(--muted);font-size:11px}.empty{padding:60px 0}
-@media(max-width:760px){h1{font-size:44px}.brief-meta{grid-template-columns:1fr 1fr}.brief-meta div:nth-child(2){border-right:0}.section-header{grid-template-columns:32px 1fr}.section-count{display:none}.story{grid-template-columns:30px 1fr}.bilingual,.analysis{grid-template-columns:1fr}.bilingual div+div,.analysis div+div{border-left:0;border-top:1px solid var(--line);padding:18px 0 0}.story-footer,footer{align-items:flex-start;flex-direction:column}.story h3{font-size:24px}}
+@media(max-width:760px){h1{font-size:44px}.brief-meta{grid-template-columns:1fr 1fr}.brief-meta div:nth-child(2){border-right:0}.section-header{grid-template-columns:32px 1fr}.section-count{display:none}.story{grid-template-columns:30px 1fr}.story-topline{flex-wrap:wrap}.story-topline time{margin-left:0}.bilingual,.analysis{grid-template-columns:1fr}.bilingual div+div,.analysis div+div{border-left:0;border-top:1px solid var(--line);padding:18px 0 0}.timeline>div{grid-template-columns:1fr}.story-footer,footer{align-items:flex-start;flex-direction:column}.story h3{font-size:24px}}
 `;

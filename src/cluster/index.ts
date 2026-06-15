@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import type { InterestsConfig, StoredArticle, StoryCluster } from "../types.ts";
+import type {
+  InterestsConfig,
+  StoredArticle,
+  StoredStorySnapshot,
+  StoryCluster
+} from "../types.ts";
 
 const stopWords = new Set([
   "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has",
@@ -47,6 +52,37 @@ export function clusterArticles(
     .sort((a, b) => b.score - a.score || b.lastSeenAt.localeCompare(a.lastSeenAt));
 }
 
+export function evolveStories(
+  stories: StoryCluster[],
+  previousStories: StoredStorySnapshot[],
+  maxHoursApart = 168,
+  preserveUnchangedStatus = false
+): StoryCluster[] {
+  const claimed = new Set<string>();
+  return stories.map((story) => {
+    const match = findPreviousStory(story, previousStories, claimed, maxHoursApart);
+    if (!match) return story;
+    claimed.add(match.key);
+
+    const previousArticleIds = new Set(match.articleIds);
+    const newArticleCount = story.articles.filter((article) => !previousArticleIds.has(article.id)).length;
+    const hasAdvanced = story.lastSeenAt > match.lastSeenAt && newArticleCount > 0;
+    return {
+      ...story,
+      key: match.key,
+      firstSeenAt: [story.firstSeenAt, match.firstSeenAt].sort()[0],
+      status: hasAdvanced
+        ? "developing"
+        : preserveUnchangedStatus
+          ? match.status
+          : "ongoing",
+      updateCount: match.updateCount + (hasAdvanced ? 1 : 0),
+      newArticleCount,
+      previousLastSeenAt: match.lastSeenAt
+    };
+  });
+}
+
 export function articleSimilarity(a: StoredArticle, b: StoredArticle): number {
   const aTokens = tokenize(a.title);
   const bTokens = tokenize(b.title);
@@ -54,6 +90,19 @@ export function articleSimilarity(a: StoredArticle, b: StoredArticle): number {
   const entityScore = jaccard(new Set(a.entities.map(normalizeToken)), new Set(b.entities.map(normalizeToken)));
   const tagScore = jaccard(new Set(a.tags.map(normalizeToken)), new Set(b.tags.map(normalizeToken)));
   return tokenScore * 0.7 + entityScore * 0.22 + tagScore * 0.08;
+}
+
+export function storySimilarity(a: StoryCluster, b: StoredStorySnapshot): number {
+  const tokenScore = jaccard(tokenize(a.title), tokenize(b.title));
+  const entityScore = jaccard(
+    new Set(a.entities.map(normalizeToken)),
+    new Set(b.entities.map(normalizeToken))
+  );
+  const tagScore = jaccard(
+    new Set(a.tags.map(normalizeToken)),
+    new Set(b.tags.map(normalizeToken))
+  );
+  return tokenScore * 0.65 + entityScore * 0.27 + tagScore * 0.08;
 }
 
 function toStoryCluster(cluster: { representative: StoredArticle; articles: StoredArticle[] }): StoryCluster {
@@ -86,8 +135,47 @@ function toStoryCluster(cluster: { representative: StoredArticle; articles: Stor
     tags,
     entities,
     sources,
-    articles
+    articles,
+    status: "new",
+    updateCount: 1,
+    newArticleCount: articles.length
   };
+}
+
+function findPreviousStory(
+  story: StoryCluster,
+  previousStories: StoredStorySnapshot[],
+  claimed: Set<string>,
+  maxHoursApart: number
+): StoredStorySnapshot | undefined {
+  const articleIds = new Set(story.articles.map((article) => article.id));
+  const overlapMatch = previousStories
+    .filter((previous) => !claimed.has(previous.key))
+    .map((previous) => ({
+      previous,
+      overlap: previous.articleIds.filter((id) => articleIds.has(id)).length
+    }))
+    .filter((candidate) => candidate.overlap > 0)
+    .sort((a, b) => b.overlap - a.overlap)[0]?.previous;
+  if (overlapMatch) return overlapMatch;
+
+  const maxGapMs = maxHoursApart * 60 * 60 * 1000;
+  return previousStories
+    .filter((previous) => {
+      if (claimed.has(previous.key) || previous.section !== story.section) return false;
+      const gap = new Date(story.firstSeenAt).getTime() - new Date(previous.lastSeenAt).getTime();
+      return gap >= 0 && gap <= maxGapMs;
+    })
+    .map((previous) => ({
+      previous,
+      similarity: storySimilarity(story, previous),
+      entityMatch: intersection(story.entities, previous.entities).length > 0
+    }))
+    .filter((candidate) =>
+      candidate.similarity >= 0.34 &&
+      (candidate.entityMatch || sharedTokenCount(story.title, candidate.previous.title) >= 2)
+    )
+    .sort((a, b) => b.similarity - a.similarity)[0]?.previous;
 }
 
 function tokenize(value: string): Set<string> {

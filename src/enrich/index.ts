@@ -48,7 +48,9 @@ export function fallbackEnrichment(story: StoryCluster): StoryEnrichment {
     whyZh: story.sources.length > 1
       ? `该事件已有 ${story.sources.length} 个独立来源报道，可信度和影响范围值得关注。`
       : `该事件符合你的${sectionZh(story.section)}关注方向。`,
-    watchZh: watchZh(story.section),
+    watchZh: story.status === "developing"
+      ? `该事件已有新进展。${watchZh(story.section)}`
+      : watchZh(story.section),
     provider: "rule-based"
   };
 }
@@ -82,6 +84,9 @@ async function enrichStory(story: StoryCluster, config: EnrichmentConfig): Promi
               summary: story.summary,
               section: story.section,
               score: story.score,
+              status: story.status,
+              updateCount: story.updateCount,
+              newArticleCount: story.newArticleCount,
               sources: story.sources,
               entities: story.entities
             })

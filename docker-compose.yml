@@ -1,7 +1,7 @@
 services:
   news-brief:
     build: .
-    image: personal-news-intelligence:0.2.0
+    image: personal-news-intelligence:0.3.0
     env_file:
       - .env
     extra_hosts:
@@ -13,7 +13,7 @@ services:
 
   dashboard:
     build: .
-    image: personal-news-intelligence:0.2.0
+    image: personal-news-intelligence:0.3.0
     env_file:
       - .env
     extra_hosts:

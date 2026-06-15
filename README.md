@@ -3,10 +3,11 @@
 一个面向个人使用的新闻情报系统：持续采集 RSS/RSSHub，聚合同一事件，
 按兴趣排序，并生成中英双语 Markdown/HTML 日报和可搜索的 Web Dashboard。
 
-当前版本：`v0.2.0`
+当前版本：`v0.3.0`
 
 - RSS/RSSHub 采集与 SQLite 存储
 - URL 去重、事件聚类、多源加权排序
+- 跨批次故事续接、发展状态与事件时间线
 - 中英双语摘要、关注理由和后续观察点
 - 适合桌面与手机阅读的 HTML 日报
 - 本地搜索、来源健康状态、历史简报
@@ -76,4 +77,5 @@ docker compose up -d dashboard
 - [产品定义](docs/PRODUCT_BRIEF.md)
 - [项目计划](docs/PROJECT_PLAN.md)
 - [Phase 3 功能说明](docs/PHASE3.md)
+- [Phase 4 故事演进](docs/PHASE4.md)
 - [部署手册](docs/DEPLOYMENT.md)

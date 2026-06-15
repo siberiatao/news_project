@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { generateBrief, resolveBriefWindow, selectReportStories } from "./brief/index.ts";
-import { clusterArticles } from "./cluster/index.ts";
+import { clusterArticles, evolveStories } from "./cluster/index.ts";
 import { loadInterests, loadSources, paths } from "./config.ts";
 import { NewsDatabase } from "./db/index.ts";
 import { sendBriefToLark } from "./delivery/lark.ts";
@@ -72,6 +72,7 @@ async function main(): Promise<void> {
       const stats = db.getStats();
       console.log(`Articles: ${stats.articles}`);
       console.log(`Stories: ${stats.stories}`);
+      console.log(`Developing stories: ${stats.developingStories}`);
       console.log(`Enabled sources seen: ${stats.sources}`);
       console.log(`Failed fetch jobs: ${stats.failedJobs}`);
       return;
@@ -115,7 +116,7 @@ async function createBrief(
 ): Promise<void> {
   const { windowStart, windowEnd } = resolveBriefWindow(options.hours);
   const articles = db.listArticles(windowStart, windowEnd, interests.minScoreForBrief);
-  const stories = clusterArticles(articles, interests);
+  const stories = buildEvolvedStories(db, articles, interests, windowStart);
   db.replaceStories(stories);
   const reportStories = selectReportStories(stories, interests);
   const enrichedStories = await enrichStories(reportStories);
@@ -145,9 +146,22 @@ function clusterWindow(
 ): number {
   const { windowStart, windowEnd } = resolveBriefWindow(hours);
   const articles = db.listArticles(windowStart, windowEnd, interests.minScoreForBrief);
-  const stories = clusterArticles(articles, interests);
+  const stories = buildEvolvedStories(db, articles, interests, windowStart);
   db.replaceStories(stories);
   return stories.length;
+}
+
+function buildEvolvedStories(
+  db: NewsDatabase,
+  articles: ReturnType<NewsDatabase["listArticles"]>,
+  interests: Awaited<ReturnType<typeof loadInterests>>,
+  windowStart: string
+) {
+  const clusters = clusterArticles(articles, interests);
+  const continuityStart = new Date(
+    new Date(windowStart).getTime() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  return evolveStories(clusters, db.listStorySnapshots(continuityStart));
 }
 
 function readHours(fallback: number): number {

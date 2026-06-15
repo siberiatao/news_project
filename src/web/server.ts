@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer, type ServerResponse } from "node:http";
 import { basename, resolve } from "node:path";
-import { clusterArticles } from "../cluster/index.ts";
+import { clusterArticles, evolveStories } from "../cluster/index.ts";
 import { paths } from "../config.ts";
 import type { NewsDatabase } from "../db/index.ts";
 import { fallbackEnrichment, sectionZh } from "../enrich/index.ts";
@@ -33,14 +33,22 @@ export async function startDashboard(options: DashboardOptions): Promise<void> {
 
       const query = url.searchParams.get("q")?.trim() ?? "";
       const section = url.searchParams.get("section")?.trim() ?? "";
+      const status = url.searchParams.get("status")?.trim() ?? "";
       const hours = clamp(Number.parseInt(url.searchParams.get("hours") ?? "72", 10), 1, 168);
       const windowEnd = new Date();
       const windowStart = new Date(windowEnd.getTime() - hours * 3600000);
       const articles = query
         ? options.db.searchArticles(query, 100)
         : options.db.listArticles(windowStart.toISOString(), windowEnd.toISOString(), options.interests.minScoreForBrief);
-      let stories = clusterArticles(articles, options.interests);
+      const continuityStart = new Date(windowStart.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      let stories = evolveStories(
+        clusterArticles(articles, options.interests),
+        options.db.listStorySnapshots(continuityStart),
+        168,
+        true
+      );
       if (section) stories = stories.filter((story) => story.section === section);
+      if (status) stories = stories.filter((story) => story.status === status);
       const page = renderDashboard({
         stories,
         sourceHealth: options.db.listSourceHealth(),
@@ -48,6 +56,7 @@ export async function startDashboard(options: DashboardOptions): Promise<void> {
         stats: options.db.getStats(),
         query,
         section,
+        status,
         hours,
         interests: options.interests
       });
@@ -79,6 +88,7 @@ type DashboardView = {
   stats: ReturnType<NewsDatabase["getStats"]>;
   query: string;
   section: string;
+  status: string;
   hours: number;
   interests: InterestsConfig;
 };
@@ -86,6 +96,7 @@ type DashboardView = {
 export function renderDashboard(view: DashboardView): string {
   const enabled = view.sourceHealth.filter((source) => source.enabled);
   const healthy = enabled.filter((source) => source.status === "healthy").length;
+  const developing = view.stories.filter((story) => story.status === "developing").length;
   const cards = view.stories.slice(0, 50).map((story) => {
     const enrichment = fallbackEnrichment(story);
     const links = story.articles.slice(0, 4).map((article) =>
@@ -94,11 +105,11 @@ export function renderDashboard(view: DashboardView): string {
     return `<article class="event-row">
       <div class="event-score"><strong>${story.score}</strong><span>SCORE</span></div>
       <div class="event-body">
-        <div class="event-meta"><span class="category">${escapeHtml(sectionZh(story.section))}</span><time>${escapeHtml(formatRelative(story.lastSeenAt))}</time></div>
+        <div class="event-meta"><div><span class="category">${escapeHtml(sectionZh(story.section))}</span><span class="event-status ${story.status}">${escapeHtml(statusZh(story.status))}</span></div><time>${escapeHtml(formatRelative(story.lastSeenAt))}</time></div>
         <h2>${escapeHtml(enrichment.titleZh)}</h2>
         <p class="event-en">${escapeHtml(story.title)}</p>
         <p>${escapeHtml(enrichment.summaryZh)}</p>
-        <div class="event-bottom"><span>${story.sources.length} sources · ${story.articles.length} items</span><div>${links}</div></div>
+        <div class="event-bottom"><span>${story.sources.length} sources · ${story.articles.length} items · tracked ${story.updateCount}× · +${story.newArticleCount} new</span><div>${links}</div></div>
       </div>
     </article>`;
   }).join("");
@@ -128,9 +139,9 @@ export function renderDashboard(view: DashboardView): string {
     </section>
     <section class="metrics">
       <div><strong>${view.stories.length}</strong><span>当前事件</span></div><div><strong>${view.stats.articles}</strong><span>累计文章</span></div>
-      <div><strong>${healthy}/${enabled.length}</strong><span>健康来源</span></div><div><strong>${view.hours}h</strong><span>观察窗口</span></div>
+      <div><strong>${developing}</strong><span>发展中事件</span></div><div><strong>${healthy}/${enabled.length}</strong><span>健康来源</span></div>
     </section>
-    <nav class="filters"><a href="/?hours=${view.hours}" class="${view.section ? "" : "active"}">全部</a>${filters}</nav>
+    <nav class="filters"><a href="/?hours=${view.hours}" class="${view.section || view.status ? "" : "active"}">全部</a><a href="/?status=developing&hours=${view.hours}" class="${view.status === "developing" ? "active" : ""}">正在发生</a>${filters}</nav>
     <div class="workspace">
       <section class="feed"><header><h2>事件流</h2><span>${view.query ? `搜索：${escapeHtml(view.query)}` : "按重要性排序"}</span></header>
         ${cards || '<p class="empty">当前条件下没有事件。</p>'}
@@ -181,6 +192,10 @@ function formatRelative(value: string): string {
   return hours < 24 ? `${hours} 小时前` : `${Math.floor(hours / 24)} 天前`;
 }
 
+function statusZh(status: StoryCluster["status"]): string {
+  return status === "developing" ? "发展中" : status === "ongoing" ? "持续关注" : "新事件";
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -194,7 +209,7 @@ main{max-width:1440px;margin:auto;padding:30px 28px}.page-title{display:flex;jus
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);border:1px solid var(--line)}.metrics div{padding:20px 24px;border-right:1px solid var(--line)}.metrics div:last-child{border:0}.metrics strong{display:block;font-family:Georgia,serif;font-size:29px}.metrics span{font-size:11px;color:var(--muted)}
 .filters{display:flex;gap:8px;overflow:auto;padding:18px 0}.filters a{text-decoration:none;color:var(--ink);font-size:11px;font-weight:700;padding:8px 11px;border:1px solid var(--line);background:#fff;white-space:nowrap}.filters a.active{color:#fff;background:var(--red);border-color:var(--red)}
 .workspace{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:22px}.feed,.side-panel{background:var(--panel);border:1px solid var(--line)}.feed>header,.side-panel>header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}.feed h2,.side-panel h3{font-size:13px;margin:0}.feed header span,.side-panel header span{font-size:10px;color:var(--muted)}
-.event-row{display:grid;grid-template-columns:64px 1fr;border-bottom:1px solid var(--line)}.event-row:last-child{border-bottom:0}.event-score{padding:22px 10px;text-align:center;border-right:1px solid var(--line)}.event-score strong{display:block;font-family:Georgia,serif;font-size:22px}.event-score span{font-size:8px;color:var(--muted)}.event-body{padding:20px}.event-meta{display:flex;justify-content:space-between;font-size:10px}.category{color:var(--red);font-weight:800}.event-meta time{color:var(--muted)}.event-body h2{font-family:Georgia,"Songti SC",serif;font-size:21px;margin:10px 0 3px}.event-en{font-family:Georgia,serif;color:#526067;font-size:13px}.event-body>p:not(.event-en){font-size:13px;line-height:1.65}.event-bottom{display:flex;justify-content:space-between;gap:14px;font-size:10px;color:var(--muted)}.event-bottom div{display:flex;gap:9px}.event-bottom a{color:var(--green);font-weight:700}
+.event-row{display:grid;grid-template-columns:64px 1fr;border-bottom:1px solid var(--line)}.event-row:last-child{border-bottom:0}.event-score{padding:22px 10px;text-align:center;border-right:1px solid var(--line)}.event-score strong{display:block;font-family:Georgia,serif;font-size:22px}.event-score span{font-size:8px;color:var(--muted)}.event-body{padding:20px}.event-meta{display:flex;justify-content:space-between;font-size:10px}.event-meta>div{display:flex;align-items:center;gap:8px}.category{color:var(--red);font-weight:800}.event-status{padding:3px 6px;border:1px solid var(--line);font-weight:800}.event-status.developing{color:#fff;background:var(--red);border-color:var(--red)}.event-status.ongoing{color:var(--green);border-color:var(--green)}.event-meta time{color:var(--muted)}.event-body h2{font-family:Georgia,"Songti SC",serif;font-size:21px;margin:10px 0 3px}.event-en{font-family:Georgia,serif;color:#526067;font-size:13px}.event-body>p:not(.event-en){font-size:13px;line-height:1.65}.event-bottom{display:flex;justify-content:space-between;gap:14px;font-size:10px;color:var(--muted)}.event-bottom div{display:flex;gap:9px}.event-bottom a{color:var(--green);font-weight:700}
 aside{display:flex;flex-direction:column;gap:22px}.side-panel table{width:100%;border-collapse:collapse;font-size:11px}.side-panel td{padding:11px 14px;border-bottom:1px solid var(--line)}.side-panel td:first-child{font-weight:700}.status{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;background:#9aa3a7}.status.healthy{background:var(--green)}.status.degraded{background:var(--red)}.brief-link{display:flex;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:11px}.brief-link span{color:var(--muted)}.empty{padding:28px;color:var(--muted);font-size:12px}
 @media(max-width:980px){.workspace{grid-template-columns:1fr}.page-title{align-items:stretch;flex-direction:column;gap:12px}.page-title form{width:100%}}@media(max-width:640px){main{padding:20px 14px}.metrics{grid-template-columns:1fr 1fr}.metrics div:nth-child(2){border-right:0}.workspace{gap:14px}.event-row{grid-template-columns:48px 1fr}.event-bottom{flex-direction:column}.topbar{padding:0 14px}}
 `;

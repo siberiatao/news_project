@@ -22,9 +22,10 @@ test("renders dashboard shell and empty states", () => {
     stories: [],
     sourceHealth: [],
     briefs: [],
-    stats: { articles: 0, stories: 0, sources: 0, failedJobs: 0 },
+    stats: { articles: 0, stories: 0, developingStories: 0, sources: 0, failedJobs: 0 },
     query: "",
     section: "",
+    status: "",
     hours: 72,
     interests
   });

@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS stories (
   tags_json TEXT NOT NULL,
   entities_json TEXT NOT NULL,
   sources_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
+  update_count INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL
 );
 

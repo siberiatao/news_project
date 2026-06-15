@@ -85,6 +85,25 @@ export type StoryCluster = {
   entities: string[];
   sources: string[];
   articles: StoredArticle[];
+  status: StoryStatus;
+  updateCount: number;
+  newArticleCount: number;
+  previousLastSeenAt?: string;
+};
+
+export type StoryStatus = "new" | "developing" | "ongoing";
+
+export type StoredStorySnapshot = {
+  key: string;
+  title: string;
+  section: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  tags: string[];
+  entities: string[];
+  status: StoryStatus;
+  updateCount: number;
+  articleIds: number[];
 };
 
 export type StoryEnrichment = {

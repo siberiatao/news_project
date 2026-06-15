@@ -8,6 +8,7 @@ import type {
   NormalizedArticle,
   SourceHealth,
   StoredArticle,
+  StoredStorySnapshot,
   StoryCluster
 } from "../types.ts";
 
@@ -28,6 +29,8 @@ export class NewsDatabase {
   async init(): Promise<void> {
     const schema = await readFile(paths.schema, "utf8");
     this.db.exec(schema);
+    this.ensureColumn("stories", "status", "TEXT NOT NULL DEFAULT 'new'");
+    this.ensureColumn("stories", "update_count", "INTEGER NOT NULL DEFAULT 1");
   }
 
   close(): void {
@@ -147,9 +150,10 @@ export class NewsDatabase {
       const upsertStory = this.db.prepare(`
         INSERT INTO stories (
           story_key, title, summary, section, score, score_reasons_json,
-          first_seen_at, last_seen_at, tags_json, entities_json, sources_json, updated_at
+          first_seen_at, last_seen_at, tags_json, entities_json, sources_json,
+          status, update_count, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(story_key) DO UPDATE SET
           title = excluded.title,
           summary = excluded.summary,
@@ -161,6 +165,8 @@ export class NewsDatabase {
           tags_json = excluded.tags_json,
           entities_json = excluded.entities_json,
           sources_json = excluded.sources_json,
+          status = excluded.status,
+          update_count = excluded.update_count,
           updated_at = excluded.updated_at
         RETURNING id
       `);
@@ -183,6 +189,8 @@ export class NewsDatabase {
           JSON.stringify(story.tags),
           JSON.stringify(story.entities),
           JSON.stringify(story.sources),
+          story.status,
+          story.updateCount,
           new Date().toISOString()
         ) as { id: number };
         deleteLinks.run(row.id);
@@ -197,6 +205,32 @@ export class NewsDatabase {
     }
   }
 
+  listStorySnapshots(since: string): StoredStorySnapshot[] {
+    const rows = this.db.prepare(`
+      SELECT
+        s.story_key, s.title, s.section, s.first_seen_at, s.last_seen_at,
+        s.tags_json, s.entities_json, s.status, s.update_count,
+        COALESCE(json_group_array(sa.article_id) FILTER (WHERE sa.article_id IS NOT NULL), '[]') AS article_ids_json
+      FROM stories s
+      LEFT JOIN story_articles sa ON sa.story_id = s.id
+      WHERE s.last_seen_at >= ?
+      GROUP BY s.id
+      ORDER BY s.last_seen_at DESC
+    `).all(since) as StorySnapshotRow[];
+    return rows.map((row) => ({
+      key: row.story_key,
+      title: row.title,
+      section: row.section,
+      firstSeenAt: row.first_seen_at,
+      lastSeenAt: row.last_seen_at,
+      tags: JSON.parse(row.tags_json) as string[],
+      entities: JSON.parse(row.entities_json) as string[],
+      status: row.status === "developing" || row.status === "ongoing" ? row.status : "new",
+      updateCount: row.update_count,
+      articleIds: JSON.parse(row.article_ids_json) as number[]
+    }));
+  }
+
   searchArticles(query: string, limit = 20): StoredArticle[] {
     const pattern = `%${query}%`;
     const rows = this.db.prepare(`
@@ -209,11 +243,18 @@ export class NewsDatabase {
     return rows.map(rowToStoredArticle);
   }
 
-  getStats(): { articles: number; stories: number; sources: number; failedJobs: number } {
+  getStats(): {
+    articles: number;
+    stories: number;
+    developingStories: number;
+    sources: number;
+    failedJobs: number;
+  } {
     const scalar = (sql: string) => Number((this.db.prepare(sql).get() as { count: number }).count);
     return {
       articles: scalar("SELECT COUNT(*) AS count FROM articles"),
       stories: scalar("SELECT COUNT(*) AS count FROM stories"),
+      developingStories: scalar("SELECT COUNT(*) AS count FROM stories WHERE status = 'developing'"),
       sources: scalar("SELECT COUNT(*) AS count FROM sources WHERE enabled = 1"),
       failedJobs: scalar("SELECT COUNT(*) AS count FROM fetch_jobs WHERE status = 'failed'")
     };
@@ -267,6 +308,13 @@ export class NewsDatabase {
       generatedAt: row.generated_at
     }));
   }
+
+  private ensureColumn(table: string, column: string, definition: string): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!columns.some((existing) => existing.name === column)) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
 }
 
 type ArticleRow = {
@@ -308,6 +356,19 @@ type BriefRow = {
   path: string;
   item_count: number;
   generated_at: string;
+};
+
+type StorySnapshotRow = {
+  story_key: string;
+  title: string;
+  section: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  tags_json: string;
+  entities_json: string;
+  status: string;
+  update_count: number;
+  article_ids_json: string;
 };
 
 function rowToStoredArticle(row: ArticleRow): StoredArticle {

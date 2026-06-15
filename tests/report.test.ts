@@ -28,6 +28,8 @@ test("renders bilingual Markdown and standalone HTML", () => {
   assert.match(html, /What matters today/);
   assert.match(html, /中文摘要/);
   assert.match(html, /OpenAI releases a platform update/);
+  assert.match(html, /Previous known update/);
+  assert.match(markdown, /Previous known update/);
 });
 
 test("selects only the configured number of stories per section", () => {
@@ -76,7 +78,11 @@ function makeStory(): EnrichedStory {
     tags: article.tags,
     entities: article.entities,
     sources: [article.sourceName],
-    articles: [article]
+    articles: [article],
+    status: "developing" as const,
+    updateCount: 2,
+    newArticleCount: 1,
+    previousLastSeenAt: "2026-06-10T00:00:00.000Z"
   };
   return { ...base, enrichment: fallbackEnrichment(base) };
 }

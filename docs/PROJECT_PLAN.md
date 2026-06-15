@@ -175,10 +175,17 @@ Phase 3: Story intelligence and X
 - Completed in Phase 2 foundation: X recent search, transparent event
   clustering, multi-source scoring, and event-level briefs.
 - Next: tune clustering against real data.
-- Next: add story evolution and timeline state.
+- Completed in Phase 4: story evolution and timeline state.
 - Later: optional embedding clustering and LLM synthesis.
 
-Phase 4: Hardening
+Phase 4: Story evolution
+
+- Completed: stable cross-run story continuity using article overlap and metadata similarity.
+- Completed: new, developing, and ongoing states with update counters.
+- Completed: report timelines and a Dashboard filter for developing stories.
+- Next: collect explicit reader feedback and tune personal ranking weights.
+
+Phase 5: Hardening
 
 - Improve source reliability.
 - Add observability.
@@ -204,8 +211,7 @@ Early decisions to make:
 
 ## 10. Immediate Next Actions
 
-1. Implement RSS/RSSHub ingestion.
-2. Store articles in SQLite.
-3. Add URL/title dedupe.
-4. Generate daily Markdown brief.
-5. Add X API and delivery after the first useful brief exists.
+1. Add reader feedback actions for useful, noisy, and follow-up-worthy stories.
+2. Persist entity profiles for companies, people, countries, and tickers.
+3. Tune clustering thresholds against accumulated real-world events.
+4. Add delivery-provider boundaries for scheduler-controlled output.

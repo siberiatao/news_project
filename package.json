@@ -1,6 +1,6 @@
 {
   "name": "personal-news-intelligence",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Personal news intelligence system with RSS ingestion, clustering, bilingual reports, and a local dashboard.",
